@@ -3,6 +3,23 @@
 Todos los cambios notables de este proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.5.0] - 2026-09-21
+
+### Cambiado
+- La columna "Motor" (GPU/CPU) del historial se reemplaza por "Duración"
+  (cuanto tardo realmente la transcripcion) — en el uso diario resulto mas
+  util que saber que motor de computo se uso. El chip "Motor" del
+  resultado tambien se saca, dejando Modelo/Idioma/Tiempo. El dato de
+  compute_device se sigue guardando en la base para diagnostico, solo deja
+  de mostrarse en la interfaz principal.
+- Tema oscuro rediseñado: paleta neutra tradicional (grises, estilo
+  GitHub/VS Code dark) en vez del verde institucional tiñendo todo el
+  fondo/bordes/texto. El verde de marca queda solo como color de acento
+  (botones, links, chips), igual que en el tema claro.
+- Arreglado de paso un problema de contraste preexistente: el texto del
+  estado "Listo" era verde oscuro sobre fondo verde oscuro en tema oscuro,
+  casi ilegible.
+
 ## [1.4.0] - 2026-09-21
 
 ### Agregado

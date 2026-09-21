@@ -20,9 +20,13 @@ de proxies, tuneles y clientes HTTP.
 - **Idioma fijado a español**: el motor siempre transcribe forzando
   `-l es`, para que no haga auto-detección de idioma en audios con ruido o
   tramos poco claros.
-- **Indicador de motor de cómputo (GPU/CPU)**: cada trabajo terminado
-  muestra si corrió acelerado por iGPU o si cayó a CPU (fallback silencioso
-  de OpenVINO), leyendo los propios logs de whisper.cpp.
+- **Duración de cada transcripción**: se muestra en el resultado y en el
+  historial cuánto tardó realmente, así se puede comparar entre modelos o
+  detectar si algo anda más lento de lo esperado.
+- El motor de cómputo (GPU/CPU) sigue detectándose y guardándose (leyendo
+  los propios logs de whisper.cpp/OpenVINO) para diagnóstico, aunque ya no
+  se muestra en la interfaz principal — la duración resultó más útil en el
+  uso diario.
 - **Descarga de resultados**: botones para bajar la transcripción en
   `.txt` o `.json` (con segmentos y timestamps), tanto en el resultado
   recién generado como desde el historial.

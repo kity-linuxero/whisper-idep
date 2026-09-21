@@ -255,7 +255,13 @@ function renderStallHint(job) {
   stallHint.style.display = 'block';
 }
 
-const DEVICE_LABELS = { GPU: 'GPU (iGPU)', CPU: 'CPU', unknown: 'desconocido' };
+function formatDuration(seconds) {
+  if (!seconds) return '—';
+  const total = Math.round(seconds);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
 
 async function showResult(job) {
   const resp = await fetch(`/api/jobs/${job.id}/result?format=txt`);
@@ -264,11 +270,9 @@ async function showResult(job) {
   resultDiv.textContent = text;
   resultDiv.style.display = 'block';
 
-  const deviceLabel = DEVICE_LABELS[job.compute_device] || 'desconocido';
-  const durationLabel = job.duration_seconds ? `${Math.round(job.duration_seconds)}s` : '—';
+  const durationLabel = formatDuration(job.duration_seconds);
   resultMeta.innerHTML = [
     `Modelo: ${escapeHtml(job.model)}`,
-    `Motor: ${deviceLabel}`,
     `Idioma: Español (forzado)`,
     `Tiempo: ${durationLabel}`,
   ].map((t) => `<span class="chip">${t}</span>`).join('');
@@ -311,7 +315,7 @@ async function loadHistory() {
     <tr>
       <td data-label="Archivo">${escapeHtml(j.original_filename)}</td>
       <td data-label="Modelo">${j.model}</td>
-      <td data-label="Motor">${j.compute_device ? (DEVICE_LABELS[j.compute_device] || j.compute_device) : '—'}</td>
+      <td data-label="Duración">${formatDuration(j.duration_seconds)}</td>
       <td data-label="Estado">${statusPillHtml(j)}</td>
       <td data-label="Fecha">${new Date(j.created_at + 'Z').toLocaleString()}</td>
       <td data-label="Acciones">${historyActionsHtml(j)}</td>
