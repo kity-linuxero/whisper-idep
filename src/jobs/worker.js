@@ -33,6 +33,29 @@ function ffmpegConvert(inputPath, outputPath, onSpawn) {
   });
 }
 
+/** Duration of the (already-converted) audio itself, in seconds — distinct from
+ * how long the transcription takes to run, which is what the user actually cares
+ * about comparing when judging "is this taking longer than it should". */
+function getAudioDuration(wavPath) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'csv=p=0',
+      wavPath,
+    ]);
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => { stdout += d.toString(); });
+    child.stderr.on('data', (d) => { stderr += d.toString(); });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) resolve(parseFloat(stdout.trim()) || null);
+      else reject(new Error(`ffprobe failed (${code}): ${stderr.trim().slice(-300)}`));
+    });
+  });
+}
+
 function setStatus(id, status, progress) {
   jobsRepo.setStatus(id, status, progress);
 }
@@ -52,7 +75,6 @@ function cancelActive(id) {
 async function processJob(job) {
   const jobDir = path.join(config.uploadsDir, job.id);
   const wavPath = path.join(jobDir, 'input.wav');
-  const startedAt = Date.now();
 
   const entry = { cancelRequested: false, killFn: null };
   activeJobs.set(job.id, entry);
@@ -67,19 +89,24 @@ async function processJob(job) {
     setStatus(job.id, 'converting', 0);
     await ffmpegConvert(job.uploadPath, wavPath, registerKill);
 
+    getAudioDuration(wavPath)
+      .then((seconds) => jobsRepo.setAudioDuration(job.id, seconds))
+      .catch((err) => console.warn(`[job ${job.id}] could not read audio duration:`, err.message));
+
     setStatus(job.id, 'uploading', 0);
     await sshRun(`MKJOBDIR ${job.id}`, { onSpawn: registerKill });
     await rsyncTo(wavPath, job.id, 'input.wav', { onSpawn: registerKill });
 
     setStatus(job.id, 'transcribing', 0);
+    const transcribeStartedAt = Date.now();
     const computeDevice = await runRemoteWhisper(
       job.id, job.model, (pct) => setStatus(job.id, 'transcribing', pct), { onSpawn: registerKill }
     );
+    const durationSeconds = (Date.now() - transcribeStartedAt) / 1000;
 
     await rsyncFrom(job.id, jobDir, { onSpawn: registerKill });
     await sshRun(`CLEANJOB ${job.id}`);
 
-    const durationSeconds = (Date.now() - startedAt) / 1000;
     jobsRepo.finishJob(job.id, {
       result_text_path: path.join(jobDir, 'output.txt'),
       result_json_path: path.join(jobDir, 'output.json'),

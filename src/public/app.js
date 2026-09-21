@@ -270,11 +270,11 @@ async function showResult(job) {
   resultDiv.textContent = text;
   resultDiv.style.display = 'block';
 
-  const durationLabel = formatDuration(job.duration_seconds);
   resultMeta.innerHTML = [
     `Modelo: ${escapeHtml(job.model)}`,
     `Idioma: Español (forzado)`,
-    `Tiempo: ${durationLabel}`,
+    `Duración del audio: ${formatDuration(job.audio_duration_seconds)}`,
+    `Tardó en transcribir: ${formatDuration(job.duration_seconds)}`,
   ].map((t) => `<span class="chip">${t}</span>`).join('');
   resultMeta.style.display = 'flex';
 
@@ -315,7 +315,8 @@ async function loadHistory() {
     <tr>
       <td data-label="Archivo">${escapeHtml(j.original_filename)}</td>
       <td data-label="Modelo">${j.model}</td>
-      <td data-label="Duración">${formatDuration(j.duration_seconds)}</td>
+      <td data-label="Audio">${formatDuration(j.audio_duration_seconds)}</td>
+      <td data-label="Tardó">${formatDuration(j.duration_seconds)}</td>
       <td data-label="Estado">${statusPillHtml(j)}</td>
       <td data-label="Fecha">${new Date(j.created_at + 'Z').toLocaleString()}</td>
       <td data-label="Acciones">${historyActionsHtml(j)}</td>

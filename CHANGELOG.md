@@ -3,6 +3,21 @@
 Todos los cambios notables de este proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.6.0] - 2026-09-21
+
+### Agregado
+- Duracion real del audio (medida con `ffprobe` sobre el WAV convertido),
+  guardada por separado de cuanto tardo la transcripcion en si.
+
+### Cambiado
+- La columna "Duracion" del historial (que generaba confusion: no se sabia
+  si era la del audio o la de la transcripcion) se separa en dos columnas:
+  "Audio" y "Tardo". Lo mismo en los chips del resultado.
+- `duration_seconds` ahora mide solo la fase de transcripcion en el motor
+  (antes incluia tambien la conversion con ffmpeg y la subida/bajada por
+  rsync, mezclando tiempo de red con tiempo de computo real).
+- Nueva columna `audio_duration_seconds` (migracion `005_audio_duration.sql`).
+
 ## [1.5.0] - 2026-09-21
 
 ### Cambiado

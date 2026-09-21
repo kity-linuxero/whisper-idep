@@ -27,6 +27,10 @@ function setStatus(id, status, progress) {
   db.prepare(sql).run(fields);
 }
 
+function setAudioDuration(id, seconds) {
+  db.prepare('UPDATE jobs SET audio_duration_seconds = @seconds WHERE id = @id').run({ id, seconds });
+}
+
 function finishJob(id, { result_text_path, result_json_path, duration_seconds, compute_device }) {
   db.prepare(
     `UPDATE jobs
@@ -80,6 +84,7 @@ function findStaleActiveJobs() {
 module.exports = {
   insertJob,
   setStatus,
+  setAudioDuration,
   finishJob,
   failJob,
   markCancelled,
