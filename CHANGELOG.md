@@ -3,6 +3,38 @@
 Todos los cambios notables de este proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.3.0] - 2026-09-21
+
+### Agregado
+- Identidad visual IDEP: paleta derivada del flyer `#enredATE'26` (verde
+  menta sobre verde casi negro), logo y favicon propios, y pie de página
+  "Desarrollado por IDEP" con enlace al sitio del equipo.
+- Tema claro/oscuro conmutable desde el header, con la preferencia
+  persistida en `localStorage` y arranque siguiendo `prefers-color-scheme`
+  cuando no hay nada guardado.
+- Zona de carga con arrastrar y soltar (drag & drop), además de la
+  selección de archivo tradicional, con nombre y tamaño visibles.
+- Botón "Actualizar" en la tarjeta de historial para refrescarlo a demanda.
+
+### Cambiado
+- Interfaz responsiva de verdad: en celular el historial pasa de tabla a
+  tarjetas apiladas, sin scroll horizontal ni texto cortado.
+- `style.css` reescrito desde cero sobre variables CSS (tokens de color,
+  tipografía, radios, sombra) en vez de valores hardcodeados.
+- Metadatos del resultado (modelo, motor, idioma, tiempo) pasan de texto
+  plano a chips individuales.
+- La fase corta de la barra de progreso (`indeterminate`) ahora se anima
+  con rayas diagonales en vez de quedar estática, respetando
+  `prefers-reduced-motion`.
+- Se mantiene el frontend sin dependencias de build ni CDN (sigue siendo
+  HTML/CSS/JS plano) y la API no cambió.
+
+### Notas
+- Este PR se armó sobre una versión anterior del frontend (antes de
+  cancelar/borrar de la v1.2.0); al integrarlo se reincorporaron el botón
+  "Cancelar", las acciones "Cancelar"/"Borrar" del historial y el progreso
+  en vivo (%) manteniendo el nuevo diseño visual.
+
 ## [1.2.0] - 2026-09-21
 
 ### Agregado
