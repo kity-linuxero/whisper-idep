@@ -22,6 +22,7 @@ const themeBtn = document.getElementById('btnTheme');
 const dropzone = document.getElementById('dropzone');
 const fileNameLabel = document.getElementById('fileName');
 const btnRefreshHistory = document.getElementById('btnRefreshHistory');
+const stallHint = document.getElementById('stallHint');
 
 (function initTheme() {
   let saved = null;
@@ -70,6 +71,31 @@ const STATUS_LABELS = {
 
 const ACTIVE_STATUSES = ['queued', 'converting', 'uploading', 'transcribing'];
 
+// Umbrales para avisar que un trabajo puede estar trabado, en base a cuánto
+// hace que llegó la última novedad real del motor (cambio de fase o una
+// nueva línea de progreso de whisper-cli) — no cuánto hace que se envió.
+const STALL_WARN_SECONDS = 60;   // "va lento" / posible contención de CPU
+const STALL_ALERT_SECONDS = 180; // "probablemente trabado"
+
+function secondsSince(isoString) {
+  if (!isoString) return null;
+  const then = new Date(isoString.replace(' ', 'T') + 'Z').getTime();
+  return Math.max(0, Math.round((Date.now() - then) / 1000));
+}
+
+function formatElapsed(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function stallLevel(seconds) {
+  if (seconds === null) return null;
+  if (seconds >= STALL_ALERT_SECONDS) return 'alert';
+  if (seconds >= STALL_WARN_SECONDS) return 'warn';
+  return null;
+}
+
 let pollTimer = null;
 let currentJobId = null;
 
@@ -86,6 +112,8 @@ function resetUi() {
   processBarInner.style.width = '0%';
   processPct.textContent = '0%';
   processBar.classList.remove('indeterminate');
+  stallHint.style.display = 'none';
+  stallHint.className = 'stall-hint';
 }
 
 function showError(msg) {
@@ -211,6 +239,20 @@ function renderJobProgress(job) {
     processBarInner.style.width = '100%';
     processPct.textContent = '100%';
   }
+  renderStallHint(job);
+}
+
+function renderStallHint(job) {
+  const elapsed = secondsSince(job.last_progress_at);
+  const level = stallLevel(elapsed);
+  if (!level) {
+    stallHint.style.display = 'none';
+    return;
+  }
+  const suffix = level === 'alert' ? ' — podría estar trabado, quizás convenga cancelar.' : ' — puede ser contención de CPU normal.';
+  stallHint.textContent = `Sin novedades hace ${formatElapsed(elapsed)}${suffix}`;
+  stallHint.className = `stall-hint stall-hint--${level}`;
+  stallHint.style.display = 'block';
 }
 
 const DEVICE_LABELS = { GPU: 'GPU (iGPU)', CPU: 'CPU', unknown: 'desconocido' };
@@ -240,7 +282,15 @@ async function showResult(job) {
 function statusPillHtml(job) {
   const label = STATUS_LABELS[job.status] || job.status;
   const suffix = job.status === 'transcribing' ? ` ${job.progress}%` : '';
-  return `<span class="status-pill status-${job.status}">${label}${suffix}</span>`;
+  let html = `<span class="status-pill status-${job.status}">${label}${suffix}</span>`;
+  if (ACTIVE_STATUSES.includes(job.status)) {
+    const elapsed = secondsSince(job.last_progress_at);
+    const level = stallLevel(elapsed);
+    if (level) {
+      html += `<br><span class="stall-hint stall-hint--${level} stall-hint--inline">sin novedades hace ${formatElapsed(elapsed)}</span>`;
+    }
+  }
+  return html;
 }
 
 function historyActionsHtml(j) {

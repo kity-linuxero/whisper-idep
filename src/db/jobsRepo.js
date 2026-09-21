@@ -4,14 +4,18 @@ const db = require('./index');
 
 function insertJob(job) {
   db.prepare(
-    `INSERT INTO jobs (id, original_filename, model, status, progress, file_size_bytes)
-     VALUES (@id, @original_filename, @model, 'queued', 0, @file_size_bytes)`
+    `INSERT INTO jobs (id, original_filename, model, status, progress, file_size_bytes, last_progress_at)
+     VALUES (@id, @original_filename, @model, 'queued', 0, @file_size_bytes, datetime('now'))`
   ).run(job);
 }
 
+/** Every call is a "heartbeat" from the worker (phase change or a fresh progress
+ * line from whisper-cli), so last_progress_at always reflects how long it's been
+ * since we last actually heard from the job — the frontend uses it to flag a
+ * job that's gone quiet for longer than expected as possibly stuck. */
 function setStatus(id, status, progress) {
   const fields = { id, status };
-  let sql = 'UPDATE jobs SET status = @status';
+  let sql = "UPDATE jobs SET status = @status, last_progress_at = datetime('now')";
   if (progress !== undefined) {
     fields.progress = progress;
     sql += ', progress = @progress';

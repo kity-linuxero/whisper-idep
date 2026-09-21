@@ -3,6 +3,20 @@
 Todos los cambios notables de este proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.4.0] - 2026-09-21
+
+### Agregado
+- **Deteccion de trabajos posiblemente trabados**: cada vez que el motor
+  reporta una novedad real (cambio de fase o una linea de progreso nueva
+  de `whisper-cli`), se guarda el momento exacto (`last_progress_at`). El
+  frontend calcula cuanto hace de la ultima novedad y avisa: mas de 60s
+  sin cambios ("puede ser contencion de CPU normal") o mas de 180s
+  ("probablemente trabado, considerar cancelar"). Se ve tanto en la
+  tarjeta de progreso como en el historial, asi que se puede notar sin
+  tener que estar mirando el reloj o comparando manualmente contra cuanto
+  dura habitualmente ese audio.
+- Nueva columna `last_progress_at` (migracion `004_last_progress_at.sql`).
+
 ## [1.3.0] - 2026-09-21
 
 ### Agregado
