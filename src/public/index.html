@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transcriptor IDEP</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Transcriptor de audio &mdash; IDEP</h1>
+
+  <div class="card">
+    <h2>Nueva transcripción</h2>
+    <label for="audiofile">Archivo de audio o video</label>
+    <input type="file" id="audiofile" accept="audio/*,video/*">
+    <p class="hint">mp3, wav, m4a, aac, ogg, video con audio — se convierte solo.</p>
+
+    <label for="model">Modelo</label>
+    <select id="model">
+      <option value="small" selected>Rápido (small) — ~3x tiempo real</option>
+      <option value="medium">Preciso (medium) — ~5x más lento, mejor en cruces de voces</option>
+    </select>
+
+    <button id="btnSend">Transcribir</button>
+
+    <div class="progress-wrap" id="uploadWrap" style="display:none;">
+      <div class="progress-label"><span>Subiendo</span><span id="uploadPct">0%</span></div>
+      <div class="progress-bar"><div id="uploadBar" style="width:0%"></div></div>
+    </div>
+
+    <div class="progress-wrap" id="processWrap" style="display:none;">
+      <div class="progress-label"><span id="processLabel">Procesando</span><span id="processPct">0%</span></div>
+      <div class="progress-bar" id="processBar"><div id="processBarInner" style="width:0%"></div></div>
+    </div>
+
+    <div class="error" id="errorMsg" style="display:none;"></div>
+    <div id="resultMeta" class="result-meta" style="display:none;"></div>
+    <div id="result"></div>
+    <div id="downloadActions" class="download-actions" style="display:none;">
+      <a class="action" id="downloadTxt" href="#">Descargar .txt</a>
+      <a class="action" id="downloadJson" href="#">Descargar .json</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Historial</h2>
+    <table>
+      <thead>
+        <tr><th>Archivo</th><th>Modelo</th><th>Motor</th><th>Estado</th><th>Fecha</th><th></th></tr>
+      </thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
