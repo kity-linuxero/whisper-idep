@@ -3,6 +3,18 @@
 Todos los cambios notables de este proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.1.1] - 2026-09-21
+
+### Arreglado
+- Bug real encontrado en produccion: `whisper-cli` imprime la transcripcion
+  completa a stdout ademas de escribirla a los archivos de salida; el
+  cliente SSH del backend nunca leia ese stream, lo que impedia que Node
+  emitiera el evento de cierre del proceso una vez terminado. Resultado:
+  el trabajo terminaba de verdad en el motor (archivos de salida ya
+  existian) pero la app se quedaba colgada para siempre en "transcribing"
+  al 100%, sin avisar. Se arregla drenando stdout en todas las llamadas
+  SSH/rsync (`ssh.stdout.resume()`).
+
 ## [1.1.0] - 2026-09-21
 
 ### Agregado

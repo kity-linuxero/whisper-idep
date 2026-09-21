@@ -27,6 +27,7 @@ function sshRun(command, { timeoutMs = 15000 } = {}) {
       child.kill();
       reject(new Error(`ssh command timed out: ${command}`));
     }, timeoutMs);
+    child.stdout.resume(); // drain and discard — unread stdout can prevent 'close' from firing
     child.stderr.on('data', (d) => { stderr += d.toString(); });
     child.on('error', (err) => { clearTimeout(timer); reject(err); });
     child.on('close', (code) => {
@@ -47,6 +48,7 @@ function rsyncTo(localPath, jobId, remoteFilename) {
       localPath,
       dest,
     ]);
+    child.stdout.resume();
     let stderr = '';
     child.stderr.on('data', (d) => { stderr += d.toString(); });
     child.on('error', reject);
@@ -67,6 +69,7 @@ function rsyncFrom(jobId, localDir) {
       src,
       `${localDir}/`,
     ]);
+    child.stdout.resume();
     let stderr = '';
     child.stderr.on('data', (d) => { stderr += d.toString(); });
     child.on('error', reject);
@@ -93,6 +96,12 @@ function runRemoteWhisper(jobId, model, onProgress) {
       child.kill('SIGTERM');
       reject(new Error('job timed out'));
     }, config.maxJobMinutes * 60_000);
+
+    // whisper-cli prints the full transcript to stdout as it transcribes, in addition to
+    // writing -otxt/-oj files. If nothing reads this stream, it never reaches 'end', and
+    // Node's 'close' event (which waits for all stdio streams to close) never fires — the
+    // remote process can finish and exit cleanly while this promise hangs forever.
+    child.stdout.resume();
 
     let buf = '';
     let stderrTail = '';
