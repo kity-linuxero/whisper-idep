@@ -10,12 +10,52 @@ const processBarInner = document.getElementById('processBarInner');
 const processPct = document.getElementById('processPct');
 const processLabel = document.getElementById('processLabel');
 const errorMsg = document.getElementById('errorMsg');
+const errorMsgText = document.getElementById('errorMsgText');
 const resultDiv = document.getElementById('result');
 const resultMeta = document.getElementById('resultMeta');
 const downloadActions = document.getElementById('downloadActions');
 const downloadTxt = document.getElementById('downloadTxt');
 const downloadJson = document.getElementById('downloadJson');
 const historyBody = document.getElementById('historyBody');
+const themeBtn = document.getElementById('btnTheme');
+const dropzone = document.getElementById('dropzone');
+const fileNameLabel = document.getElementById('fileName');
+const btnRefreshHistory = document.getElementById('btnRefreshHistory');
+
+(function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem('theme'); } catch (_) {}
+  if (saved === 'light' || saved === 'dark') {
+    document.documentElement.dataset.theme = saved;
+  }
+  themeBtn.addEventListener('click', () => {
+    const current = document.documentElement.dataset.theme
+      || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('theme', next); } catch (_) {}
+  });
+})();
+
+function renderFileName(file) {
+  fileNameLabel.textContent = file ? `${file.name} (${Math.round(file.size / 1024)} KB)` : '';
+}
+
+fileInput.addEventListener('change', () => renderFileName(fileInput.files[0]));
+
+['dragover', 'dragleave', 'drop'].forEach((evt) => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    if (evt === 'dragover') dropzone.classList.add('dragover');
+    else dropzone.classList.remove('dragover');
+    if (evt === 'drop' && e.dataTransfer.files.length) {
+      fileInput.files = e.dataTransfer.files;
+      renderFileName(fileInput.files[0]);
+    }
+  });
+});
+
+btnRefreshHistory.addEventListener('click', loadHistory);
 
 const STATUS_LABELS = {
   queued: 'En cola',
@@ -44,8 +84,8 @@ function resetUi() {
 }
 
 function showError(msg) {
-  errorMsg.textContent = msg;
-  errorMsg.style.display = 'block';
+  errorMsgText.textContent = msg;
+  errorMsg.style.display = 'flex';
   btn.disabled = false;
 }
 
@@ -145,8 +185,13 @@ async function showResult(job) {
 
   const deviceLabel = DEVICE_LABELS[job.compute_device] || 'desconocido';
   const durationLabel = job.duration_seconds ? `${Math.round(job.duration_seconds)}s` : '—';
-  resultMeta.textContent = `Modelo: ${job.model} · Motor: ${deviceLabel} · Idioma: Español (forzado) · Tiempo: ${durationLabel}`;
-  resultMeta.style.display = 'block';
+  resultMeta.innerHTML = [
+    `Modelo: ${escapeHtml(job.model)}`,
+    `Motor: ${deviceLabel}`,
+    `Idioma: Español (forzado)`,
+    `Tiempo: ${durationLabel}`,
+  ].map((t) => `<span class="chip">${t}</span>`).join('');
+  resultMeta.style.display = 'flex';
 
   downloadTxt.href = `/api/jobs/${job.id}/result?format=txt`;
   downloadJson.href = `/api/jobs/${job.id}/result?format=json`;
@@ -163,13 +208,16 @@ async function loadHistory() {
   const jobs = await resp.json();
   historyBody.innerHTML = jobs.map((j) => `
     <tr>
-      <td>${escapeHtml(j.original_filename)}</td>
-      <td>${j.model}</td>
-      <td>${j.compute_device ? (DEVICE_LABELS[j.compute_device] || j.compute_device) : '—'}</td>
-      <td>${statusPillHtml(j.status)}</td>
-      <td>${new Date(j.created_at + 'Z').toLocaleString()}</td>
-      <td>${j.status === 'done'
-        ? `<a class="action" href="/api/jobs/${j.id}/result?format=txt">.txt</a><a class="action" href="/api/jobs/${j.id}/result?format=json">.json</a>`
+      <td data-label="Archivo">${escapeHtml(j.original_filename)}</td>
+      <td data-label="Modelo">${j.model}</td>
+      <td data-label="Motor">${j.compute_device ? (DEVICE_LABELS[j.compute_device] || j.compute_device) : '—'}</td>
+      <td data-label="Estado">${statusPillHtml(j.status)}</td>
+      <td data-label="Fecha">${new Date(j.created_at + 'Z').toLocaleString()}</td>
+      <td data-label="Descargas">${j.status === 'done'
+        ? `<span class="actions-row">
+             <a class="action" href="/api/jobs/${j.id}/result?format=txt">.txt</a>
+             <a class="action" href="/api/jobs/${j.id}/result?format=json">.json</a>
+           </span>`
         : ''}</td>
     </tr>
   `).join('');

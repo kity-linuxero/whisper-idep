@@ -34,6 +34,15 @@ de proxies, tuneles y clientes HTTP.
 - **Recuperación ante caídas**: si el contenedor se reinicia con un trabajo
   a medio camino, ese trabajo queda marcado `failed` en vez de colgado
   para siempre; no hay reintentos automáticos.
+- **Identidad IDEP**: desarrollado por [IDEP Informática](https://www.idepba.com.ar/idep-informatica/).
+
+## Interfaz
+
+Frontend propio sin dependencias de build ni CDN (HTML/CSS/JS plano,
+servido directo desde `src/public/`). Tema claro/oscuro conmutable desde
+el header (la preferencia se guarda en `localStorage`), interfaz
+responsiva — el historial pasa a tarjetas apiladas en celular — y
+estética IDEP (paleta del flyer `#enredATE'26`, logo y favicon propios).
 
 ## Arquitectura
 
