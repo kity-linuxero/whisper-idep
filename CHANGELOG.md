@@ -15,8 +15,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 - Zona de carga con arrastrar y soltar (drag & drop), además de la
   selección de archivo tradicional, con nombre y tamaño visibles.
 - Botón "Actualizar" en la tarjeta de historial para refrescarlo a demanda.
+- Captura de pantalla de la app en el README.
 
 ### Cambiado
+- El botón de tema ahora muestra el ícono correcto (sol en claro, luna en
+  oscuro) con una animación de rotación y fundido al cambiar — antes
+  siempre mostraba el sol sin importar el tema activo.
 - Interfaz responsiva de verdad: en celular el historial pasa de tabla a
   tarjetas apiladas, sin scroll horizontal ni texto cortado.
 - `style.css` reescrito desde cero sobre variables CSS (tokens de color,

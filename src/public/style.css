@@ -173,6 +173,29 @@ h2 { font-size: 1rem; margin: 0 0 16px; }
 .icon-btn:hover { border-color: var(--accent); }
 .icon-btn svg { width: 18px; height: 18px; flex-shrink: 0; stroke: currentColor; fill: none; }
 
+.icon-btn--theme { position: relative; }
+.icon-btn--theme svg {
+  position: absolute;
+  top: 50%; left: 50%;
+  margin: -9px 0 0 -9px;
+  transition: opacity .35s ease, transform .5s ease;
+}
+.icon-btn--theme .icon-sun { opacity: 1; transform: rotate(0deg) scale(1); }
+.icon-btn--theme .icon-moon { opacity: 0; transform: rotate(90deg) scale(.4); }
+
+/* Sin preferencia guardada: seguir el tema del sistema */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .icon-btn--theme .icon-sun { opacity: 0; transform: rotate(-90deg) scale(.4); }
+  :root:not([data-theme="light"]) .icon-btn--theme .icon-moon { opacity: 1; transform: rotate(0deg) scale(1); }
+}
+/* Preferencia guardada explícita: manda sobre el sistema */
+:root[data-theme="dark"] .icon-btn--theme .icon-sun { opacity: 0; transform: rotate(-90deg) scale(.4); }
+:root[data-theme="dark"] .icon-btn--theme .icon-moon { opacity: 1; transform: rotate(0deg) scale(1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn--theme svg { transition: opacity .01s linear; }
+}
+
 /* ===== Form ===== */
 label { display: block; font-weight: 600; margin-bottom: 6px; font-size: .9rem; }
 .hint { font-size: .8rem; color: var(--muted); margin-top: -8px; margin-bottom: 14px; }

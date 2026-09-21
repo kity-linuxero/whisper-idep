@@ -49,6 +49,10 @@ el header (la preferencia se guarda en `localStorage`), interfaz
 responsiva — el historial pasa a tarjetas apiladas en celular — y
 estética IDEP (paleta del flyer `#enredATE'26`, logo y favicon propios).
 
+## Captura de pantalla
+
+![Transcriptor de audio IDEP](docs/screenshot.png)
+
 ## Arquitectura
 
 ```
