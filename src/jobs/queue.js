@@ -15,6 +15,14 @@ function enqueue(job) {
   drain();
 }
 
+/** Remove a not-yet-started job from the wait list. Returns true if it was found and removed. */
+function cancelQueued(id) {
+  const idx = queue.findIndex((j) => j.id === id);
+  if (idx === -1) return false;
+  queue.splice(idx, 1);
+  return true;
+}
+
 async function drain() {
   if (busy || queue.length === 0) return;
   busy = true;
@@ -35,4 +43,4 @@ function queueLength() {
   return queue.length + (busy ? 1 : 0);
 }
 
-module.exports = { setProcessor, enqueue, queueLength };
+module.exports = { setProcessor, enqueue, cancelQueued, queueLength };

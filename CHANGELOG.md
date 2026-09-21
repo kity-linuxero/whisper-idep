@@ -3,6 +3,27 @@
 Todos los cambios notables de este proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.2.0] - 2026-09-21
+
+### Agregado
+- **Cancelar trabajos**: `POST /api/jobs/:id/cancel` funciona tanto para
+  trabajos todavia en cola como para trabajos activos (converting/
+  uploading/transcribing) — mata el proceso correspondiente (ffmpeg o
+  ssh/rsync) en el momento en que se pide.
+- **Borrar del historial**: `DELETE /api/jobs/:id` ahora tambien cancela el
+  trabajo si estaba activo y borra sus archivos locales (antes solo
+  borraba la fila de la base de datos, dejando archivos huerfanos).
+- Boton "Cancelar" en la vista de progreso y acciones "Cancelar"/"Borrar"
+  por fila en el historial, con confirmacion antes de ejecutar.
+- El historial ahora muestra el progreso (%) en vivo de trabajos activos,
+  y se actualiza cada 4s (antes 10s) para que cancelar se sienta responsivo.
+- Como el estado de cada trabajo vive en el servidor (no en el navegador),
+  todo esto funciona desde cualquier sesion o dispositivo, no solo desde
+  donde se subio el audio originalmente.
+- Nuevo estado `cancelled` en la base de datos (migracion
+  `003_cancelled_status.sql`, recrea la tabla `jobs` para ampliar el
+  `CHECK` de `status`).
+
 ## [1.1.1] - 2026-09-21
 
 ### Arreglado

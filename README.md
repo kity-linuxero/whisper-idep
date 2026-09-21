@@ -31,6 +31,11 @@ de proxies, tuneles y clientes HTTP.
   contenedor.
 - **Un solo trabajo a la vez**: el motor remoto tiene una sola iGPU
   compartida — la cola nunca corre dos transcripciones en paralelo.
+- **Cancelar y borrar**: cualquier trabajo (en cola o corriendo) se puede
+  cancelar, y cualquier trabajo terminado se puede borrar del historial
+  (elimina también sus archivos). Como el estado vive en el servidor, se ve
+  y se puede accionar desde cualquier sesión/dispositivo que abra la página,
+  no solo desde donde se subió el audio.
 - **Recuperación ante caídas**: si el contenedor se reinicia con un trabajo
   a medio camino, ese trabajo queda marcado `failed` en vez de colgado
   para siempre; no hay reintentos automáticos.
@@ -106,7 +111,11 @@ configuración viven en el servidor del motor, fuera de este repo.
 - `GET /api/jobs/:id` — estado/progreso de un trabajo (para polling).
 - `GET /api/jobs/:id/result?format=txt|json` — descarga del resultado
   (`409` si el trabajo no terminó).
-- `DELETE /api/jobs/:id` — borra un trabajo del historial.
+- `POST /api/jobs/:id/cancel` — cancela un trabajo en cola o en curso
+  (`409` si ya terminó). El estado pasa a `cancelled` de forma asíncrona,
+  apenas el proceso que se está matando termina de salir.
+- `DELETE /api/jobs/:id` — borra un trabajo del historial (si estaba activo,
+  se cancela primero) y elimina sus archivos locales.
 - `GET /api/health` — healthcheck.
 
 ## Despliegue

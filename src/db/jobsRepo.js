@@ -45,6 +45,12 @@ function failJob(id, error) {
   ).run({ id, error: String(error).slice(0, 2000) });
 }
 
+function markCancelled(id, message) {
+  db.prepare(
+    `UPDATE jobs SET status = 'cancelled', error = @error, finished_at = datetime('now') WHERE id = @id`
+  ).run({ id, error: message || 'cancelado por el usuario' });
+}
+
 function getJob(id) {
   return db.prepare('SELECT * FROM jobs WHERE id = ?').get(id);
 }
@@ -72,6 +78,7 @@ module.exports = {
   setStatus,
   finishJob,
   failJob,
+  markCancelled,
   getJob,
   listJobs,
   deleteJob,

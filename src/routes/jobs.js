@@ -1,12 +1,17 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const express = require('express');
+const config = require('../config');
 const jobsRepo = require('../db/jobsRepo');
 const queue = require('../jobs/queue');
+const worker = require('../jobs/worker');
 const { upload, assignJobId } = require('../middleware/upload');
 
 const router = express.Router();
+
+const TERMINAL_STATUSES = ['done', 'failed', 'cancelled'];
 
 router.post('/jobs', assignJobId, upload.single('audio'), (req, res) => {
   if (!req.file) {
@@ -62,10 +67,49 @@ router.get('/jobs/:id/result', (req, res) => {
   res.sendFile(filePath);
 });
 
+// Cancel a job that hasn't finished yet — works whether it's still waiting in
+// the queue or actively converting/uploading/transcribing right now. The
+// actual DB status flips to 'cancelled' asynchronously once the killed child
+// process exits, so callers should keep polling GET /jobs/:id afterwards.
+router.post('/jobs/:id/cancel', (req, res) => {
+  const job = jobsRepo.getJob(req.params.id);
+  if (!job) return res.status(404).json({ error: 'not found' });
+
+  if (TERMINAL_STATUSES.includes(job.status)) {
+    return res.status(409).json({ error: `job is already ${job.status}` });
+  }
+
+  if (job.status === 'queued' && queue.cancelQueued(job.id)) {
+    jobsRepo.markCancelled(job.id, 'Cancelado por el usuario (en cola)');
+    return res.json({ id: job.id, status: 'cancelled' });
+  }
+
+  const found = worker.cancelActive(job.id);
+  if (!found) {
+    // Race: it finished (or was already removed) between our read and now.
+    return res.status(409).json({ error: 'job already finished' });
+  }
+  res.json({ id: job.id, status: 'cancelling' });
+});
+
+// Remove a job from history. If it hasn't finished yet, it's cancelled first
+// (best-effort — the worker's own cleanup still runs asynchronously in the
+// background). Local result files are deleted so nothing lingers on disk
+// once it's gone from the list.
 router.delete('/jobs/:id', (req, res) => {
   const job = jobsRepo.getJob(req.params.id);
   if (!job) return res.status(404).json({ error: 'not found' });
+
+  if (!TERMINAL_STATUSES.includes(job.status)) {
+    if (job.status === 'queued') queue.cancelQueued(job.id);
+    else worker.cancelActive(job.id);
+  }
+
   jobsRepo.deleteJob(req.params.id);
+
+  const jobDir = path.join(config.uploadsDir, req.params.id);
+  fs.promises.rm(jobDir, { recursive: true, force: true }).catch(() => {});
+
   res.status(204).end();
 });
 

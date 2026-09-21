@@ -19,9 +19,10 @@ function sshArgs(extra) {
 }
 
 /** Run a short dispatcher command (MKJOBDIR / KILLJOB / CLEANJOB) and wait for it to exit. */
-function sshRun(command, { timeoutMs = 15000 } = {}) {
+function sshRun(command, { timeoutMs = 15000, onSpawn } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn('ssh', sshArgs([command]));
+    if (onSpawn) onSpawn(child);
     let stderr = '';
     const timer = setTimeout(() => {
       child.kill();
@@ -39,7 +40,7 @@ function sshRun(command, { timeoutMs = 15000 } = {}) {
 }
 
 /** rsync a local file up into the job's directory on CT110 as the given remote filename. */
-function rsyncTo(localPath, jobId, remoteFilename) {
+function rsyncTo(localPath, jobId, remoteFilename, { onSpawn } = {}) {
   return new Promise((resolve, reject) => {
     const dest = `${config.sshUser}@${config.ct110Host}:${jobId}/${remoteFilename}`;
     const child = spawn('rsync', [
@@ -48,6 +49,7 @@ function rsyncTo(localPath, jobId, remoteFilename) {
       localPath,
       dest,
     ]);
+    if (onSpawn) onSpawn(child);
     child.stdout.resume();
     let stderr = '';
     child.stderr.on('data', (d) => { stderr += d.toString(); });
@@ -60,7 +62,7 @@ function rsyncTo(localPath, jobId, remoteFilename) {
 }
 
 /** rsync the whisper-cli output files back down from CT110 into localDir. */
-function rsyncFrom(jobId, localDir) {
+function rsyncFrom(jobId, localDir, { onSpawn } = {}) {
   return new Promise((resolve, reject) => {
     const src = `${config.sshUser}@${config.ct110Host}:${jobId}/output.*`;
     const child = spawn('rsync', [
@@ -69,6 +71,7 @@ function rsyncFrom(jobId, localDir) {
       src,
       `${localDir}/`,
     ]);
+    if (onSpawn) onSpawn(child);
     child.stdout.resume();
     let stderr = '';
     child.stderr.on('data', (d) => { stderr += d.toString(); });
@@ -89,9 +92,10 @@ function rsyncFrom(jobId, localDir) {
  * back to CPU (both are logged via whisper.cpp's default log sink, which is stderr).
  * Resolves with the detected device: 'GPU', 'CPU', or 'unknown' if neither line appeared.
  */
-function runRemoteWhisper(jobId, model, onProgress) {
+function runRemoteWhisper(jobId, model, onProgress, { onSpawn } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn('ssh', sshArgs([`RUNJOB ${jobId} ${model}`]));
+    if (onSpawn) onSpawn(child);
     const timer = setTimeout(() => {
       child.kill('SIGTERM');
       reject(new Error('job timed out'));

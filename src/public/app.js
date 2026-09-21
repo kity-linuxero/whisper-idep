@@ -9,6 +9,7 @@ const processBar = document.getElementById('processBar');
 const processBarInner = document.getElementById('processBarInner');
 const processPct = document.getElementById('processPct');
 const processLabel = document.getElementById('processLabel');
+const btnCancel = document.getElementById('btnCancel');
 const errorMsg = document.getElementById('errorMsg');
 const resultDiv = document.getElementById('result');
 const resultMeta = document.getElementById('resultMeta');
@@ -24,9 +25,13 @@ const STATUS_LABELS = {
   transcribing: 'Transcribiendo',
   done: 'Listo',
   failed: 'Error',
+  cancelled: 'Cancelado',
 };
 
+const ACTIVE_STATUSES = ['queued', 'converting', 'uploading', 'transcribing'];
+
 let pollTimer = null;
+let currentJobId = null;
 
 function resetUi() {
   errorMsg.style.display = 'none';
@@ -73,9 +78,12 @@ btn.addEventListener('click', () => {
   xhr.addEventListener('load', () => {
     if (xhr.status === 201) {
       const { id } = JSON.parse(xhr.responseText);
+      currentJobId = id;
       uploadBar.style.width = '100%';
       uploadPct.textContent = '100%';
       processWrap.style.display = 'block';
+      btnCancel.disabled = false;
+      btnCancel.textContent = 'Cancelar';
       pollJob(id);
     } else {
       let msg = xhr.responseText;
@@ -102,12 +110,23 @@ function pollJob(id) {
       if (job.status === 'done') {
         clearInterval(pollTimer);
         btn.disabled = false;
+        btnCancel.disabled = true;
+        currentJobId = null;
         await showResult(job);
         loadHistory();
       } else if (job.status === 'failed') {
         clearInterval(pollTimer);
         btn.disabled = false;
+        btnCancel.disabled = true;
+        currentJobId = null;
         showError(job.error || 'La transcripción falló.');
+        loadHistory();
+      } else if (job.status === 'cancelled') {
+        clearInterval(pollTimer);
+        btn.disabled = false;
+        btnCancel.disabled = true;
+        currentJobId = null;
+        showError('Trabajo cancelado.');
         loadHistory();
       }
     } catch (err) {
@@ -115,6 +134,26 @@ function pollJob(id) {
       console.warn('poll error', err);
     }
   }, 1500);
+}
+
+btnCancel.addEventListener('click', async () => {
+  if (!currentJobId) return;
+  if (!confirm('¿Cancelar esta transcripción?')) return;
+  btnCancel.disabled = true;
+  btnCancel.textContent = 'Cancelando...';
+  try {
+    await cancelJobRequest(currentJobId);
+  } catch (err) {
+    console.warn('cancel error', err);
+  }
+});
+
+async function cancelJobRequest(id) {
+  const resp = await fetch(`/api/jobs/${id}/cancel`, { method: 'POST' });
+  if (!resp.ok && resp.status !== 409) {
+    throw new Error(`HTTP ${resp.status}`);
+  }
+  return resp;
 }
 
 function renderJobProgress(job) {
@@ -153,8 +192,20 @@ async function showResult(job) {
   downloadActions.style.display = 'block';
 }
 
-function statusPillHtml(status) {
-  return `<span class="status-pill status-${status}">${STATUS_LABELS[status] || status}</span>`;
+function statusPillHtml(job) {
+  const label = STATUS_LABELS[job.status] || job.status;
+  const suffix = job.status === 'transcribing' ? ` ${job.progress}%` : '';
+  return `<span class="status-pill status-${job.status}">${label}${suffix}</span>`;
+}
+
+function historyActionsHtml(j) {
+  if (ACTIVE_STATUSES.includes(j.status)) {
+    return `<a class="action action-danger" href="#" data-cancel="${j.id}">Cancelar</a>`;
+  }
+  const downloads = j.status === 'done'
+    ? `<a class="action" href="/api/jobs/${j.id}/result?format=txt">.txt</a><a class="action" href="/api/jobs/${j.id}/result?format=json">.json</a>`
+    : '';
+  return `${downloads}<a class="action action-danger" href="#" data-delete="${j.id}">Borrar</a>`;
 }
 
 async function loadHistory() {
@@ -166,18 +217,42 @@ async function loadHistory() {
       <td>${escapeHtml(j.original_filename)}</td>
       <td>${j.model}</td>
       <td>${j.compute_device ? (DEVICE_LABELS[j.compute_device] || j.compute_device) : '—'}</td>
-      <td>${statusPillHtml(j.status)}</td>
+      <td>${statusPillHtml(j)}</td>
       <td>${new Date(j.created_at + 'Z').toLocaleString()}</td>
-      <td>${j.status === 'done'
-        ? `<a class="action" href="/api/jobs/${j.id}/result?format=txt">.txt</a><a class="action" href="/api/jobs/${j.id}/result?format=json">.json</a>`
-        : ''}</td>
+      <td>${historyActionsHtml(j)}</td>
     </tr>
   `).join('');
 }
+
+historyBody.addEventListener('click', async (e) => {
+  const cancelId = e.target.dataset.cancel;
+  const deleteId = e.target.dataset.delete;
+  if (!cancelId && !deleteId) return;
+  e.preventDefault();
+
+  if (cancelId) {
+    if (!confirm('¿Cancelar esta transcripción?')) return;
+    try {
+      await cancelJobRequest(cancelId);
+      if (cancelId === currentJobId) btnCancel.disabled = true;
+    } catch (err) {
+      console.warn('cancel error', err);
+    }
+    loadHistory();
+  } else if (deleteId) {
+    if (!confirm('¿Borrar esta transcripción del historial? Esta acción no se puede deshacer.')) return;
+    try {
+      await fetch(`/api/jobs/${deleteId}`, { method: 'DELETE' });
+    } catch (err) {
+      console.warn('delete error', err);
+    }
+    loadHistory();
+  }
+});
 
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 loadHistory();
-setInterval(loadHistory, 10000);
+setInterval(loadHistory, 4000);

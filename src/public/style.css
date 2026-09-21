@@ -20,6 +20,13 @@ button {
   border-radius: 6px; font-size: 1rem; cursor: pointer;
 }
 button:disabled { background: #999; cursor: not-allowed; }
+.btn-danger {
+  background: #fff; color: #b91c1c; border: 1px solid #b91c1c;
+  padding: 6px 14px; border-radius: 6px; font-size: .85rem; cursor: pointer;
+  margin-top: 10px;
+}
+.btn-danger:hover { background: #fee2e2; }
+.btn-danger:disabled { background: #f3f4f6; color: #999; border-color: #ccc; cursor: not-allowed; }
 .progress-wrap { margin-top: 14px; }
 .progress-label { font-size: .85rem; color: #444; margin-bottom: 4px; display: flex; justify-content: space-between; }
 .progress-bar { height: 10px; background: #e5e5e5; border-radius: 5px; overflow: hidden; }
@@ -38,5 +45,7 @@ th { color: #555; font-weight: 600; }
 .status-failed { background: #fee2e2; color: #991b1b; }
 .status-queued { background: #f1f5f9; color: #475569; }
 .status-converting, .status-uploading, .status-transcribing { background: #fef9c3; color: #854d0e; }
+.status-cancelled { background: #f1f5f9; color: #64748b; }
 a.action { color: #2563eb; text-decoration: none; margin-right: 10px; font-size: .85rem; }
 a.action:hover { text-decoration: underline; }
+a.action-danger { color: #b91c1c; }
