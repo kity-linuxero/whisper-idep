@@ -3,6 +3,18 @@
 Todos los cambios notables de este proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.7.0] - 2026-09-21
+
+### Cambiado
+- Umbrales de aviso de "trabajo posiblemente trabado" subidos de 1/3
+  minutos a 3/5 minutos — el aviso anterior saltaba demasiado pronto y
+  generaba falsas alarmas en escenarios de contencion de CPU normal.
+
+### Agregado
+- Version desplegada visible en el pie de pagina, con link al CHANGELOG
+  en GitHub. Se expone via `GET /api/health` (leyendo `package.json`) y el
+  frontend la pide una vez al cargar.
+
 ## [1.6.0] - 2026-09-21
 
 ### Agregado

@@ -23,6 +23,7 @@ const dropzone = document.getElementById('dropzone');
 const fileNameLabel = document.getElementById('fileName');
 const btnRefreshHistory = document.getElementById('btnRefreshHistory');
 const stallHint = document.getElementById('stallHint');
+const footerVersion = document.getElementById('footerVersion');
 
 (function initTheme() {
   let saved = null;
@@ -74,8 +75,8 @@ const ACTIVE_STATUSES = ['queued', 'converting', 'uploading', 'transcribing'];
 // Umbrales para avisar que un trabajo puede estar trabado, en base a cuánto
 // hace que llegó la última novedad real del motor (cambio de fase o una
 // nueva línea de progreso de whisper-cli) — no cuánto hace que se envió.
-const STALL_WARN_SECONDS = 60;   // "va lento" / posible contención de CPU
-const STALL_ALERT_SECONDS = 180; // "probablemente trabado"
+const STALL_WARN_SECONDS = 180;  // "va lento" / posible contención de CPU
+const STALL_ALERT_SECONDS = 300; // "probablemente trabado"
 
 function secondsSince(isoString) {
   if (!isoString) return null;
@@ -357,3 +358,10 @@ function escapeHtml(s) {
 
 loadHistory();
 setInterval(loadHistory, 4000);
+
+fetch('/api/health')
+  .then((r) => r.json())
+  .then(({ version }) => {
+    if (version) footerVersion.textContent = `v${version}`;
+  })
+  .catch(() => {});

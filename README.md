@@ -40,6 +40,13 @@ de proxies, tuneles y clientes HTTP.
   (elimina también sus archivos). Como el estado vive en el servidor, se ve
   y se puede accionar desde cualquier sesión/dispositivo que abra la página,
   no solo desde donde se subió el audio.
+- **Aviso de trabajos posiblemente trabados**: si un trabajo activo pasa
+  3 minutos sin ninguna novedad real del motor, se avisa (posible
+  contención de CPU); a los 5 minutos, aviso más fuerte (probablemente
+  trabado, conviene cancelar).
+- El pie de página muestra la versión desplegada, con link al
+  [CHANGELOG](https://github.com/kity-linuxero/whisper-idep/blob/main/CHANGELOG.md)
+  en GitHub.
 - **Recuperación ante caídas**: si el contenedor se reinicia con un trabajo
   a medio camino, ese trabajo queda marcado `failed` en vez de colgado
   para siempre; no hay reintentos automáticos.
