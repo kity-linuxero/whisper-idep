@@ -1,8 +1,10 @@
 {
   "name": "whisper-app",
-  "version": "1.7.0",
+  "version": "2.0.0",
   "private": true,
+  "license": "MIT",
   "type": "commonjs",
+  "engines": { "node": ">=20" },
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js"

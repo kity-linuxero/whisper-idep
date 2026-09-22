@@ -1,0 +1,28 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - name: Syntax check
+        run: |
+          for f in $(git ls-files 'src/*.js'); do node --check "$f"; done
+          bash -n install/app-install.sh install/lxc/whisper-app.sh
+      - name: App boots and runs migrations
+        run: |
+          ENGINE_URL=http://127.0.0.1:9 ENGINE_TOKEN=x DB_PATH=/tmp/jobs.db UPLOADS_DIR=/tmp/up \
+            timeout 5 node src/server.js || [ $? -eq 124 ]
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false

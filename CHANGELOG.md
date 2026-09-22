@@ -3,6 +3,37 @@
 Todos los cambios notables de este proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [2.0.0] - 2026-09-22
+
+Cambio de arquitectura: el motor de transcripción pasa a ser
+[whisper-engine](https://github.com/kity-linuxero/whisper-engine), una API
+REST por HTTP, en lugar del acceso por SSH con comandos forzados. **Requiere
+cambiar la configuración** (ver "Migrar desde 1.x" en el README).
+
+### Cambiado (incompatible)
+- La comunicación con el motor es por HTTP con token Bearer
+  (`ENGINE_URL`, `ENGINE_TOKEN`). Se eliminan `CT110_HOST`, `SSH_USER`,
+  `SSH_KEY_PATH` y `KNOWN_HOSTS_PATH`; si siguen definidas y falta
+  `ENGINE_URL`, la app no arranca y explica cómo migrar.
+- La imagen Docker ya no incluye `openssh-client` ni `rsync`, y el compose ya
+  no monta `secrets/`.
+
+### Agregado
+- La lista de modelos sale del motor (`GET /api/models`): el formulario ofrece
+  los que el motor tenga instalados, no solo small/medium.
+- Descarga de resultados en `.srt` y `.vtt` además de `.txt` y `.json`.
+- `GET /api/health` informa si el motor está alcanzable y su versión.
+- El idioma que se muestra en el resultado es el configurado en el motor.
+- Instalador nativo para Debian (`install/app-install.sh`) e instalador de
+  LXC para Proxmox VE (`install/lxc/whisper-app.sh`).
+- Imagen publicada en GHCR (`ghcr.io/kity-linuxero/whisper-idep`) y licencia MIT.
+- Cada trabajo guarda en qué motor corrió (`engine_id`), base para repartir
+  trabajos entre varios motores en una versión futura.
+
+### Corregido
+- Cortes breves de red con el motor durante una transcripción ya no hacen
+  fallar el trabajo: se tolera hasta ~1 minuto sin respuesta.
+
 ## [1.7.0] - 2026-09-21
 
 ### Cambiado

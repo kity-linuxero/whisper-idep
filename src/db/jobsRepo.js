@@ -9,8 +9,8 @@ function insertJob(job) {
   ).run(job);
 }
 
-/** Every call is a "heartbeat" from the worker (phase change or a fresh progress
- * line from whisper-cli), so last_progress_at always reflects how long it's been
+/** Every call is a "heartbeat" from the worker (phase change or a real change
+ * in the progress the engine reports), so last_progress_at always reflects how long it's been
  * since we last actually heard from the job — the frontend uses it to flag a
  * job that's gone quiet for longer than expected as possibly stuck. */
 function setStatus(id, status, progress) {
@@ -25,6 +25,11 @@ function setStatus(id, status, progress) {
   }
   sql += ' WHERE id = @id';
   db.prepare(sql).run(fields);
+}
+
+function setEngine(id, engineId, engineJobId) {
+  db.prepare('UPDATE jobs SET engine_id = @engineId, engine_job_id = @engineJobId WHERE id = @id')
+    .run({ id, engineId, engineJobId });
 }
 
 function setAudioDuration(id, seconds) {
@@ -76,7 +81,7 @@ function deleteJob(id) {
 function findStaleActiveJobs() {
   return db
     .prepare(
-      `SELECT id FROM jobs WHERE status IN ('queued','converting','uploading','transcribing')`
+      `SELECT id, engine_id, engine_job_id FROM jobs WHERE status IN ('queued','converting','uploading','transcribing')`
     )
     .all();
 }
@@ -84,6 +89,7 @@ function findStaleActiveJobs() {
 module.exports = {
   insertJob,
   setStatus,
+  setEngine,
   setAudioDuration,
   finishJob,
   failJob,
