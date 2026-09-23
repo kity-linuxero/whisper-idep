@@ -39,8 +39,7 @@
 
       <label for="model">Modelo</label>
       <select id="model">
-        <option value="small" selected>Rápido (small) — ~3x tiempo real</option>
-        <option value="medium">Preciso (medium) — ~5x más lento, mejor en cruces de voces</option>
+        <option value="" disabled selected>Cargando modelos del motor…</option>
       </select>
 
       <button id="btnSend">Transcribir</button>
@@ -64,16 +63,7 @@
       <div id="resultMeta" class="meta-row" style="display:none;"></div>
       <div id="result"></div>
       <div id="downloadActions" class="download-actions" style="display:none;">
-        <div class="actions-row">
-          <a class="action" id="downloadTxt" href="#">
-            <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 16l-4-4M12 16l4-4"></path><path d="M4 18v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
-            Descargar .txt
-          </a>
-          <a class="action" id="downloadJson" href="#">
-            <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 16l-4-4M12 16l4-4"></path><path d="M4 18v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
-            Descargar .json
-          </a>
-        </div>
+        <div class="actions-row" id="downloadLinks"></div>
       </div>
     </div>
 

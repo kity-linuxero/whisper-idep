@@ -7,19 +7,31 @@ const config = require('../config');
 const jobsRepo = require('../db/jobsRepo');
 const queue = require('../jobs/queue');
 const worker = require('../jobs/worker');
+const engines = require('../remote/engines');
 const { upload, assignJobId } = require('../middleware/upload');
 
 const router = express.Router();
 
 const TERMINAL_STATUSES = ['done', 'failed', 'cancelled'];
 
-router.post('/jobs', assignJobId, upload.single('audio'), (req, res) => {
+router.post('/jobs', assignJobId, upload.single('audio'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'missing "audio" file field' });
   }
-  const model = (req.body.model || 'small').toLowerCase();
-  if (!['small', 'medium'].includes(model)) {
-    return res.status(400).json({ error: 'model must be "small" or "medium"' });
+  const discard = () => fs.promises.rm(path.join(config.uploadsDir, req.jobId), { recursive: true, force: true }).catch(() => {});
+
+  // Models are whatever the engine has installed.
+  let models;
+  try {
+    models = await engines.listModels();
+  } catch (err) {
+    await discard();
+    return res.status(503).json({ error: `El motor de transcripción no está disponible: ${err.message}` });
+  }
+  const model = String(req.body.model || models.default || '').toLowerCase();
+  if (!models.data.some((m) => m.id === model)) {
+    await discard();
+    return res.status(400).json({ error: `model must be one of: ${models.data.map((m) => m.id).join(', ')}` });
   }
 
   const job = {
@@ -48,6 +60,17 @@ router.get('/jobs/:id', (req, res) => {
   res.json(sanitize(job));
 });
 
+const CONTENT_TYPES = {
+  txt: 'text/plain; charset=utf-8',
+  json: 'application/json; charset=utf-8',
+  srt: 'application/x-subrip; charset=utf-8',
+  vtt: 'text/vtt; charset=utf-8',
+};
+
+function resultPath(id, format) {
+  return path.join(config.uploadsDir, id, `output.${format}`);
+}
+
 router.get('/jobs/:id/result', (req, res) => {
   const job = jobsRepo.getJob(req.params.id);
   if (!job) return res.status(404).json({ error: 'not found' });
@@ -55,15 +78,16 @@ router.get('/jobs/:id/result', (req, res) => {
     return res.status(409).json({ error: `job is ${job.status}, not done yet` });
   }
   const format = (req.query.format || 'txt').toLowerCase();
-  const filePath = format === 'json' ? job.result_json_path : job.result_text_path;
-  if (!filePath || !fs.existsSync(filePath)) {
+  if (!worker.RESULT_FORMATS.includes(format)) {
+    return res.status(400).json({ error: `format must be one of: ${worker.RESULT_FORMATS.join(', ')}` });
+  }
+  const filePath = resultPath(job.id, format);
+  if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'result file missing' });
   }
   const baseName = job.original_filename.replace(/\.[^./]+$/, '') || 'transcripcion';
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="${baseName}.${format === 'json' ? 'json' : 'txt'}"`
-  );
+  res.setHeader('Content-Type', CONTENT_TYPES[format]);
+  res.setHeader('Content-Disposition', `attachment; filename="${baseName}.${format}"`);
   res.sendFile(filePath);
 });
 
@@ -113,9 +137,13 @@ router.delete('/jobs/:id', (req, res) => {
   res.status(204).end();
 });
 
-// Never leak local filesystem paths to the frontend.
+// Never leak local filesystem paths (or engine internals) to the frontend.
+// result_formats lists what can be downloaded: jobs from 1.x only have txt/json.
 function sanitize(job) {
-  const { result_text_path, result_json_path, ...rest } = job;
+  const { result_text_path, result_json_path, engine_job_id, ...rest } = job;
+  if (job.status === 'done') {
+    rest.result_formats = worker.RESULT_FORMATS.filter((f) => fs.existsSync(resultPath(job.id, f)));
+  }
   return rest;
 }
 

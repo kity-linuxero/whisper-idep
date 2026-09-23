@@ -15,8 +15,7 @@ const errorMsgText = document.getElementById('errorMsgText');
 const resultDiv = document.getElementById('result');
 const resultMeta = document.getElementById('resultMeta');
 const downloadActions = document.getElementById('downloadActions');
-const downloadTxt = document.getElementById('downloadTxt');
-const downloadJson = document.getElementById('downloadJson');
+const downloadLinks = document.getElementById('downloadLinks');
 const historyBody = document.getElementById('historyBody');
 const themeBtn = document.getElementById('btnTheme');
 const dropzone = document.getElementById('dropzone');
@@ -264,6 +263,49 @@ function formatDuration(seconds) {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
+// Friendly labels for the usual whisper.cpp models; anything else the engine
+// offers shows up by its plain id.
+const MODEL_LABELS = {
+  tiny: 'Mínimo (tiny) — muy rápido, baja precisión',
+  base: 'Básico (base) — rápido, precisión modesta',
+  small: 'Rápido (small) — ~3x tiempo real',
+  medium: 'Preciso (medium) — ~5x más lento, mejor en cruces de voces',
+  'large-v3-turbo': 'Muy preciso (large-v3-turbo) — lento sin GPU dedicada',
+  'large-v3': 'Máxima precisión (large-v3) — muy lento sin GPU dedicada',
+};
+const LANGUAGE_LABELS = { es: 'Español', en: 'Inglés', pt: 'Portugués', auto: 'Automático' };
+let engineLanguage = null;
+let modelsErrorShown = false;
+
+async function loadModels() {
+  try {
+    const resp = await fetch('/api/models');
+    const body = await resp.json();
+    if (!resp.ok) throw new Error(body.error || `HTTP ${resp.status}`);
+    engineLanguage = body.language || null;
+    modelSelect.innerHTML = body.models.map((id) => `
+      <option value="${escapeHtml(id)}"${id === body.default ? ' selected' : ''}>${escapeHtml(MODEL_LABELS[id] || id)}</option>
+    `).join('');
+    btn.disabled = false;
+    if (modelsErrorShown) errorMsg.style.display = 'none';
+    modelsErrorShown = false;
+  } catch (err) {
+    modelSelect.innerHTML = '<option value="" disabled selected>Motor no disponible</option>';
+    showError(`No se pudo consultar el motor de transcripción: ${err.message}`);
+    modelsErrorShown = true;
+    btn.disabled = true; // showError re-enables it; there's nothing to send to yet
+    setTimeout(loadModels, 10_000);
+  }
+}
+
+const DOWNLOAD_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 16l-4-4M12 16l4-4"></path><path d="M4 18v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>';
+
+function downloadLinksHtml(job, withIcon) {
+  return (job.result_formats || ['txt', 'json'])
+    .map((f) => `<a class="action" href="/api/jobs/${job.id}/result?format=${f}">${withIcon ? `${DOWNLOAD_ICON} Descargar ` : ''}.${f}</a>`)
+    .join('');
+}
+
 async function showResult(job) {
   const resp = await fetch(`/api/jobs/${job.id}/result?format=txt`);
   if (!resp.ok) return;
@@ -273,14 +315,13 @@ async function showResult(job) {
 
   resultMeta.innerHTML = [
     `Modelo: ${escapeHtml(job.model)}`,
-    `Idioma: Español (forzado)`,
+    ...(engineLanguage ? [`Idioma: ${escapeHtml(LANGUAGE_LABELS[engineLanguage] || engineLanguage)}`] : []),
     `Duración del audio: ${formatDuration(job.audio_duration_seconds)}`,
     `Tardó en transcribir: ${formatDuration(job.duration_seconds)}`,
   ].map((t) => `<span class="chip">${t}</span>`).join('');
   resultMeta.style.display = 'flex';
 
-  downloadTxt.href = `/api/jobs/${job.id}/result?format=txt`;
-  downloadJson.href = `/api/jobs/${job.id}/result?format=json`;
+  downloadLinks.innerHTML = downloadLinksHtml(job, true);
   downloadActions.style.display = 'block';
 }
 
@@ -303,7 +344,7 @@ function historyActionsHtml(j) {
     return `<a class="action action-danger" href="#" data-cancel="${j.id}">Cancelar</a>`;
   }
   const downloads = j.status === 'done'
-    ? `<a class="action" href="/api/jobs/${j.id}/result?format=txt">.txt</a><a class="action" href="/api/jobs/${j.id}/result?format=json">.json</a>`
+    ? downloadLinksHtml(j, false)
     : '';
   return `<span class="actions-row">${downloads}<a class="action action-danger" href="#" data-delete="${j.id}">Borrar</a></span>`;
 }
@@ -315,7 +356,7 @@ async function loadHistory() {
   historyBody.innerHTML = jobs.map((j) => `
     <tr>
       <td data-label="Archivo">${escapeHtml(j.original_filename)}</td>
-      <td data-label="Modelo">${j.model}</td>
+      <td data-label="Modelo">${escapeHtml(j.model)}</td>
       <td data-label="Audio">${formatDuration(j.audio_duration_seconds)}</td>
       <td data-label="Tardó">${formatDuration(j.duration_seconds)}</td>
       <td data-label="Estado">${statusPillHtml(j)}</td>
@@ -356,6 +397,8 @@ function escapeHtml(s) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+btn.disabled = true;
+loadModels();
 loadHistory();
 setInterval(loadHistory, 4000);
 

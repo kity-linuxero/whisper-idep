@@ -1,8 +1,9 @@
 # whisper-app
 
-Frontend propio de transcripción de audio/video en español, con motor
-[whisper.cpp](https://github.com/ggml-org/whisper.cpp) acelerado por GPU
-(Intel iGPU vía OpenVINO) en un segundo servidor. Pensado para reuniones
+Frontend propio de transcripción de audio/video en español. El motor es
+[whisper-engine](https://github.com/kity-linuxero/whisper-engine): una API REST
+sobre [whisper.cpp](https://github.com/ggml-org/whisper.cpp) que corre en CPU o
+en una iGPU Intel vía OpenVINO, en el mismo servidor o en otro. Pensado para reuniones
 largas (30-40+ minutos), donde una API síncrona clásica se topa con timeouts
 de proxies, tuneles y clientes HTTP.
 
@@ -15,11 +16,11 @@ de proxies, tuneles y clientes HTTP.
 - **Progreso real, no estimado**: se lee directamente la salida de
   `whisper-cli --print-progress` en el motor remoto, no un cálculo por
   tiempo transcurrido.
-- **Selección de modelo**: `small` (rápido, ~3x tiempo real) o `medium`
-  (más preciso, mejor con cruces de voces, ~5x más lento).
-- **Idioma fijado a español**: el motor siempre transcribe forzando
-  `-l es`, para que no haga auto-detección de idioma en audios con ruido o
-  tramos poco claros.
+- **Selección de modelo**: el formulario ofrece los modelos que tenga
+  instalados el motor. Por ejemplo, `small` (rápido, ~3x tiempo real) o
+  `medium` (más preciso, mejor con cruces de voces, ~5x más lento).
+- **Idioma fijado en el motor** (español por defecto): se fuerza el idioma
+  para que no haga auto-detección en audios con ruido o tramos poco claros.
 - **Duración de cada transcripción**: se muestra en el resultado y en el
   historial cuánto tardó realmente, así se puede comparar entre modelos o
   detectar si algo anda más lento de lo esperado.
@@ -27,14 +28,14 @@ de proxies, tuneles y clientes HTTP.
   los propios logs de whisper.cpp/OpenVINO) para diagnóstico, aunque ya no
   se muestra en la interfaz principal — la duración resultó más útil en el
   uso diario.
-- **Descarga de resultados**: botones para bajar la transcripción en
-  `.txt` o `.json` (con segmentos y timestamps), tanto en el resultado
-  recién generado como desde el historial.
+- **Descarga de resultados**: la transcripción se baja en `.txt`, `.json`
+  (con segmentos y timestamps) o como subtítulos `.srt`/`.vtt`, tanto desde
+  el resultado recién generado como desde el historial.
 - **Historial persistente**: todos los trabajos (archivo, modelo, motor,
   estado, fecha, duración) quedan en SQLite y sobreviven reinicios del
   contenedor.
-- **Un solo trabajo a la vez**: el motor remoto tiene una sola iGPU
-  compartida — la cola nunca corre dos transcripciones en paralelo.
+- **Un solo trabajo a la vez**: el motor tiene una sola CPU/iGPU, así que
+  la cola nunca corre dos transcripciones en paralelo.
 - **Cancelar y borrar**: cualquier trabajo (en cola o corriendo) se puede
   cancelar, y cualquier trabajo terminado se puede borrar del historial
   (elimina también sus archivos). Como el estado vive en el servidor, se ve
@@ -69,79 +70,137 @@ estética IDEP (paleta del flyer `#enredATE'26`, logo y favicon propios).
 ```
 Usuario (navegador) ──HTTPS──▶ reverse proxy (auth) ──▶ whisper-app (Node/Express + SQLite)
                                                                 │
-                                                       SSH (usuario restringido,
-                                                       comando forzado, sin shell)
+                                                     HTTP + token Bearer
                                                                 ▼
-                                                     motor whisper.cpp + iGPU (OpenVINO)
+                                                  whisper-engine (whisper.cpp, CPU o iGPU)
 ```
 
-- La app **no hace ninguna autenticación propia** — se delega por completo
-  al reverse proxy que la expone a internet (usuario/contraseña vía Access
-  List, Basic Auth, o lo que corresponda). No exponer este puerto
-  directamente a internet sin ese proxy delante.
-- La conversión de formato (mp3/m4a/video/etc. → WAV 16kHz mono) ocurre acá,
-  con `ffmpeg`, antes de mandar el audio al motor. El motor remoto solo
-  recibe WAV limpio.
-- La comunicación con el motor es por SSH con una clave restringida a un
-  puñado de comandos fijos (`MKJOBDIR`, `RUNJOB`, `KILLJOB`, `CLEANJOB`,
-  transferencia de archivos vía `rsync`/`rrsync`) — nunca una shell
-  interactiva.
+> **La app no tiene autenticación propia.** Se delega por completo al reverse
+> proxy que la expone a internet (usuario/contraseña vía Access List, Basic
+> Auth, SSO, o lo que corresponda). No expongas este puerto directamente a
+> internet sin ese proxy delante.
+
+- La conversión de formato (mp3/m4a/video/etc. → WAV 16 kHz mono) ocurre
+  acá, con `ffmpeg`, antes de mandar el audio al motor. Así se sube menos
+  data que con un video y se conoce la duración del audio.
+- Con el motor se habla por su API REST: subir el WAV (`POST /v1/jobs`),
+  consultar el progreso cada 2 s, bajar los resultados y borrar el trabajo
+  del motor. El historial y los resultados quedan en la app.
 
 ## Ciclo de vida de un trabajo
 
-`queued → converting → uploading → transcribing → done | failed`
+`queued → converting → uploading → transcribing → done | failed | cancelled`
+
+## Instalación
+
+Primero hace falta un motor
+[whisper-engine](https://github.com/kity-linuxero/whisper-engine) andando, con su
+URL y su token. Su README explica cómo instalarlo en LXC o en Docker. Después,
+cualquiera de estas opciones:
+
+### Opción A: LXC en Proxmox VE
+
+En el **host** de Proxmox, como root:
+
+```bash
+git clone https://github.com/kity-linuxero/whisper-idep.git
+cd whisper-idep
+./install/lxc/whisper-app.sh --engine-url http://192.168.1.50:8080 --engine-token <token> \
+    --ip 192.168.1.60/24 --gw 192.168.1.1
+```
+
+Crea un CT Debian 13 unprivileged (2 cores, 1 GB de RAM, 8 GB de disco; se
+cambia con `--cores`, `--memory` y `--disk`). Adentro instala la app como servicio
+systemd y verifica que llegue al motor. Otros flags: `--ctid`, `--hostname`,
+`--storage`, `--bridge`, `--vlan`, `--dns`, `--port`, `--yes`.
+
+### Opción B: Debian 12/13 existente
+
+```bash
+git clone https://github.com/kity-linuxero/whisper-idep.git
+cd whisper-idep
+sudo ./install/app-install.sh --engine-url http://192.168.1.50:8080 --engine-token <token>
+```
+
+| | |
+|---|---|
+| App | `/opt/whisper-app` |
+| Historial (SQLite) y archivos | `/var/lib/whisper-app` |
+| Config | `/etc/whisper-app/app.env` |
+| Servicio | `systemctl status whisper-app` · `journalctl -u whisper-app -f` |
+
+Volver a correr el script actualiza el código y conserva la config y el historial.
+
+### Opción C: Docker
+
+```bash
+git clone https://github.com/kity-linuxero/whisper-idep.git
+cd whisper-idep
+cp .env.example .env    # completar ENGINE_URL y ENGINE_TOKEN
+docker compose up -d    # usa la imagen de GHCR; con --build la construye localmente
+```
+
+### Todo en uno (motor + app en la misma máquina, Docker)
+
+El repo del motor trae `docker-compose.full.yml`, que levanta los dos juntos. Ver
+[whisper-engine → Todo en uno](https://github.com/kity-linuxero/whisper-engine#todo-en-uno-motor--frontend).
 
 ## Variables de entorno
 
-Ver [`.env.example`](.env.example). Copiarlo a `.env` y completar con los
-valores reales del entorno (host del motor, usuario/clave SSH, etc.) — ese
-archivo **no se versiona** (está en `.gitignore`).
+Ver [`.env.example`](.env.example). En Docker van en `.env`; en la instalación
+nativa, en `/etc/whisper-app/app.env`. Ninguno de los dos se versiona.
 
-| Variable           | Descripción                                             |
+| Variable           | Descripción                                              |
 |--------------------|----------------------------------------------------------|
-| `PORT`             | Puerto interno de la app dentro del contenedor.          |
-| `BIND_HOST`        | IP/host donde `docker compose` publica el puerto.        |
-| `DB_PATH`          | Ruta del archivo SQLite (dentro del contenedor).         |
-| `UPLOADS_DIR`      | Directorio de staging de subidas (dentro del contenedor).|
-| `CT110_HOST`       | Host del motor whisper.cpp.                              |
-| `SSH_USER`         | Usuario SSH restringido en el motor.                     |
-| `SSH_KEY_PATH`     | Clave privada SSH (montada read-only vía `secrets/`).    |
-| `KNOWN_HOSTS_PATH` | `known_hosts` pre-sembrado del motor.                    |
+| `ENGINE_URL`       | URL base de whisper-engine (ej. `http://10.0.0.5:8080`). |
+| `ENGINE_TOKEN`     | Token Bearer del motor.                                  |
+| `ENGINE_POLL_MS`   | Cada cuánto se consulta el progreso (default 2000).      |
+| `PORT` / `HOST`    | Puerto e IP donde escucha la app.                        |
+| `BIND_HOST`        | (Docker) IP del host donde se publica el puerto.         |
+| `DB_PATH`          | Ruta del archivo SQLite.                                 |
+| `UPLOADS_DIR`      | Directorio de subidas y resultados.                      |
 | `MAX_UPLOAD_MB`    | Límite de tamaño de archivo subido.                      |
-| `MAX_JOB_MINUTES`  | Timeout duro por trabajo de transcripción.                |
+| `MAX_JOB_MINUTES`  | Timeout duro por trabajo de transcripción.               |
 
-## Puesta en marcha
+`MAX_UPLOAD_MB` tiene que ser coherente con el límite del motor y con el del
+reverse proxy (`client_max_body_size` en nginx).
 
-```bash
-cp .env.example .env    # completar con los valores reales
-mkdir -p secrets
-# copiar ahí la clave privada SSH y el known_hosts del motor:
-#   secrets/id_ed25519
-#   secrets/known_hosts
-chmod 600 secrets/id_ed25519
+## Migrar desde 1.x
 
-docker compose up -d --build
-```
+La 1.x hablaba con el motor por SSH (usuario restringido con comandos forzados
+y rsync). Desde la 2.0 el motor es whisper-engine por HTTP:
 
-Requiere que, del lado del motor whisper.cpp, exista un usuario de sistema
-restringido con comando SSH forzado (`MKJOBDIR`/`RUNJOB`/`KILLJOB`/
-`CLEANJOB`, más `rsync --server` vía `rrsync`). Ese script y su
-configuración viven en el servidor del motor, fuera de este repo.
+1. Instalar [whisper-engine](https://github.com/kity-linuxero/whisper-engine)
+   (puede ser un LXC nuevo, en paralelo al motor viejo) y anotar su URL y token.
+2. En el `.env` de la app, borrar `CT110_HOST`, `SSH_USER`, `SSH_KEY_PATH` y
+   `KNOWN_HOSTS_PATH`, y agregar `ENGINE_URL` y `ENGINE_TOKEN`.
+3. Actualizar y reiniciar (`docker compose up -d --build`). Al arrancar, una
+   migración de la base adapta la tabla de trabajos. **El historial y los
+   resultados de la 1.x se conservan**; los trabajos viejos se siguen bajando
+   en `.txt`/`.json`.
+4. Una vez verificado, se puede borrar `secrets/` (la clave SSH) y, en el
+   servidor del motor viejo, el usuario restringido y su `authorized_keys`.
 
 ## API
 
+- `GET /api/models` — modelos disponibles en el motor → `{default, models}`.
 - `POST /api/jobs` — multipart (`audio`, `model`) → `201 {id, status}`.
 - `GET /api/jobs?limit=&offset=` — historial.
 - `GET /api/jobs/:id` — estado/progreso de un trabajo (para polling).
-- `GET /api/jobs/:id/result?format=txt|json` — descarga del resultado
+- `GET /api/jobs/:id/result?format=txt|json|srt|vtt` — descarga del resultado
   (`409` si el trabajo no terminó).
 - `POST /api/jobs/:id/cancel` — cancela un trabajo en cola o en curso
   (`409` si ya terminó). El estado pasa a `cancelled` de forma asíncrona,
   apenas el proceso que se está matando termina de salir.
 - `DELETE /api/jobs/:id` — borra un trabajo del historial (si estaba activo,
   se cancela primero) y elimina sus archivos locales.
-- `GET /api/health` — healthcheck.
+- `GET /api/health` — healthcheck; incluye `engine: {ok, version}`.
 
-## Despliegue
+## Versiones
 
-Ver [`CHANGELOG.md`](CHANGELOG.md) para el historial de versiones.
+Ver [`CHANGELOG.md`](CHANGELOG.md) para el historial de versiones y
+[`AGENTS.md`](AGENTS.md) para la política de versionado.
+
+## Licencia
+
+[MIT](LICENSE).

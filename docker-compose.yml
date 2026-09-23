@@ -1,5 +1,6 @@
 services:
   whisper-app:
+    image: ghcr.io/kity-linuxero/whisper-idep:${APP_VERSION:-latest}
     build: .
     container_name: whisper-app
     restart: unless-stopped
@@ -8,7 +9,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
-      - ./secrets:/app/secrets:ro
     env_file:
       - .env
     healthcheck:

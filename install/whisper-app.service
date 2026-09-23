@@ -1,0 +1,24 @@
+[Unit]
+Description=whisper-app: frontend de transcripción (whisper-idep)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=whisper-app
+Group=whisper-app
+EnvironmentFile=/etc/whisper-app/app.env
+WorkingDirectory=/opt/whisper-app
+ExecStart=/usr/bin/env node /opt/whisper-app/src/server.js
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/whisper-app
+
+[Install]
+WantedBy=multi-user.target
