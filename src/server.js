@@ -17,6 +17,8 @@ fs.mkdirSync(config.uploadsDir, { recursive: true });
 
 queue.setProcessor(worker.processJob);
 worker.recoverStaleJobs();
+worker.purgeStoredAudio()
+  .catch((err) => console.warn('[startup] could not purge stored audio:', err.message));
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));

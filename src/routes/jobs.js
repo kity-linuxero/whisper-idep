@@ -105,6 +105,8 @@ router.post('/jobs/:id/cancel', (req, res) => {
 
   if (job.status === 'queued' && queue.cancelQueued(job.id)) {
     jobsRepo.markCancelled(job.id, 'Cancelado por el usuario (en cola)');
+    // Never processed, so nothing to keep: drop the uploaded audio right away.
+    fs.promises.rm(path.join(config.uploadsDir, job.id), { recursive: true, force: true }).catch(() => {});
     return res.json({ id: job.id, status: 'cancelled' });
   }
 

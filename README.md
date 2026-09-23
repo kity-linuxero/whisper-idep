@@ -31,6 +31,9 @@ de proxies, tuneles y clientes HTTP.
 - **Descarga de resultados**: la transcripción se baja en `.txt`, `.json`
   (con segmentos y timestamps) o como subtítulos `.srt`/`.vtt`, tanto desde
   el resultado recién generado como desde el historial.
+- **Los audios no se guardan**: el archivo subido y su conversión se borran
+  apenas termina cada trabajo (bien, con error o cancelado), tanto en la app
+  como en el motor. Solo quedan las transcripciones.
 - **Historial persistente**: todos los trabajos (archivo, modelo, motor,
   estado, fecha, duración) quedan en SQLite y sobreviven reinicios del
   contenedor.

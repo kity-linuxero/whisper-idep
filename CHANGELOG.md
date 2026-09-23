@@ -3,6 +3,16 @@
 Todos los cambios notables de este proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [2.1.0] - 2026-09-23
+
+### Agregado
+- Privacidad: los audios ya no se guardan. El archivo subido y el WAV
+  convertido se borran apenas termina cada trabajo (bien, con error o
+  cancelado); solo quedan las transcripciones para descargar. Al arrancar, la
+  app borra cualquier audio que haya quedado en disco de versiones anteriores
+  o de una caída. Requiere whisper-engine ≥ 1.0.1 para que el motor tampoco
+  conserve el audio.
+
 ## [2.0.0] - 2026-09-22
 
 Cambio de arquitectura: el motor de transcripción pasa a ser

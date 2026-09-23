@@ -135,7 +135,8 @@ async function processJob(job) {
     entry.child = null;
     if (signal.aborted) throw new CancelledError();
 
-    getAudioDuration(wavPath)
+    // Awaited (it takes milliseconds) so the WAV is never deleted under ffprobe.
+    await getAudioDuration(wavPath)
       .then((seconds) => jobsRepo.setAudioDuration(job.id, seconds))
       .catch((err) => console.warn(`[job ${job.id}] could not read audio duration:`, err.message));
 
@@ -174,9 +175,36 @@ async function processJob(job) {
     if (engineJobId) await engine.deleteJob(engineJobId).catch(() => {});
   } finally {
     activeJobs.delete(job.id);
-    // Clean up the original upload (converted WAV/results stay for download).
-    fs.promises.unlink(job.uploadPath).catch(() => {});
+    // Privacy: audio is never kept. Whatever the outcome, the upload and the
+    // converted WAV are deleted; only the transcripts stay for download.
+    await removeAudio(jobDir);
   }
+}
+
+const TRANSCRIPT_RE = /^output\.(txt|json|srt|vtt)$/;
+
+/** Delete every file in a job directory that isn't a transcript. */
+async function removeAudio(jobDir) {
+  let files;
+  try {
+    files = await fs.promises.readdir(jobDir);
+  } catch {
+    return;
+  }
+  await Promise.all(files.filter((f) => !TRANSCRIPT_RE.test(f))
+    .map((f) => fs.promises.rm(path.join(jobDir, f), { force: true })));
+}
+
+/** Startup sweep: no job is running yet, so any audio left on disk (from a
+ * crash, or from versions that kept the WAV for download) gets deleted. */
+async function purgeStoredAudio() {
+  let dirs;
+  try {
+    dirs = await fs.promises.readdir(config.uploadsDir);
+  } catch {
+    return;
+  }
+  for (const d of dirs) await removeAudio(path.join(config.uploadsDir, d));
 }
 
 /** On process startup, any job left mid-flight from a crash/restart can't be
@@ -191,4 +219,4 @@ function recoverStaleJobs() {
   }
 }
 
-module.exports = { processJob, recoverStaleJobs, cancelActive, RESULT_FORMATS };
+module.exports = { processJob, recoverStaleJobs, purgeStoredAudio, cancelActive, RESULT_FORMATS };
